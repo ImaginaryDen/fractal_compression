@@ -21,17 +21,9 @@ Compress(const char *image_filename,
         throw std::runtime_error("Input image should be "
                                  "256x256 or 512x512 pixels");
 
-	std::cout << sizeof(IFSTransform) << std::endl;
-	std::cout << sizeof(DomainBlock) << std::endl;
 	Encoder encoder(quality, block_size, false);
 	auto transforms = encoder.Encode(image);
 	transforms.safeData(archive_filename);
-
-	Decoder decoder(width, height);
-	for (int phase = 1; phase <= 5; phase++)
-		decoder.Decode(transforms, phase);
-
-	SaveImageWithMatrix(&decoder.m_img, "test_output.bmp");
 }
 
 

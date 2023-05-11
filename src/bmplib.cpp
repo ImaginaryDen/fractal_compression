@@ -71,9 +71,6 @@ Image *load_image(const char *filename)
             delete_image(image);
             return NULL;
          }
-
-         fprintf(stderr,"%3d\t%3d\t%3d\t%3d\n",
-                 i, color_index[i].r, color_index[i].g, color_index[i].b);
       }
       got_index = true;
    }

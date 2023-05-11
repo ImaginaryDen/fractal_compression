@@ -4,6 +4,7 @@
 
 #include "Decoder.h"
 #include <sstream>
+#include <iostream>
 Decoder::Decoder(int width, int height)
 {
 	m_img.width = width;
@@ -25,6 +26,8 @@ Decoder::Decoder(int width, int height)
 void Decoder::Decode(Transforms &transforms, int phase)
 {
 	size_t num_iter = 0;
+	std::cout << transforms.transforms.size() << std::endl;
+
 
 	for (auto &transform : transforms.transforms)
 		for (auto &t : transform.second)

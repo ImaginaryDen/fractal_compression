@@ -141,27 +141,26 @@ uint8_t *IFSTransform::DownSample(uint8_t *src, uint32_t srcWidth, int startX, i
 }
 
 IFSTransform::IFSTransform(int16_t toX, int16_t toY, uint16_t size, float scale, int16_t offset, int16_t width,
-						   int16_t chanel) : m_offset(offset), m_scale(scale)
+						   int16_t chanel) : m_scale(scale)
 {
-	m_offset += chanel << (sizeof(offset) * 8 - 2);
-	m_offset += size << (sizeof(offset) * 8 - 6);
+	m_offset = 0;
+	m_offset += chanel << (sizeof(m_offset) * 8 - 2);
+	m_offset += size << (sizeof(m_offset) * 8 - 6);
+
+	int16_t copy_offset = offset;
+	if (offset < 0)
+	{
+		m_offset += 0x0200;
+		copy_offset = abs(offset);
+	}
+	m_offset += copy_offset;
 
 	int count = width;
 	int x_count{}, y_count{};
 
-	while(size != count)
-	{
-		m_rang <<= 2;
-		count >>= 1;
-		if (toX >= count + x_count){
-			++m_rang;
-			x_count += count;
-		}
-		if (toY >= count + y_count){
-			m_rang += 2;
-			y_count += count;
-		}
-	}
+	m_rang = 0;
+	m_rang += (uint16_t)(toX >> 1) << 8;
+	m_rang += (uint16_t)(toY >> 1);
 
 //	if (toX != getX(width))
 //		throw std::runtime_error("ERROR");
@@ -176,11 +175,11 @@ IFSTransform::IFSTransform(int16_t toX, int16_t toY, uint16_t size, float scale,
 }
 
 int IFSTransform::getX(int width) const{
-	return calculateByte(width, 1);
+	return (m_rang & 0xff00) >> (8 - 1);
 }
 
 int IFSTransform::getY(int width) const{
-	return calculateByte(width, 2);
+	return  (m_rang & 0x00ff) << 1;
 }
 
 int IFSTransform::getSize(int width) const{
@@ -206,6 +205,8 @@ int IFSTransform::getChanel(int width) const{
 }
 
 int IFSTransform::getOffset(int width) const{
+	if (m_offset & 0x0200)
+		return -((uint16_t)(m_offset << 7) >> 7);
 	return (uint16_t)(m_offset << 6) >> 6;
 }
 

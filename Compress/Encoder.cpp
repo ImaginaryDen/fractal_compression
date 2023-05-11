@@ -6,6 +6,7 @@
 #include "Decoder.h"
 #include <stdexcept>
 #include <iostream>
+#include <thread>
 
 void getChannel(Image *source, int channel, uint8_t * buffer)
 {
@@ -33,47 +34,50 @@ void getChannel(Image *source, int channel, uint8_t * buffer)
 		}
 }
 
-Transforms Encoder::Encode(Image *source) {
-	m_img.width = source->info_header.width;
-	m_img.height = source->info_header.height;
-	m_img.colorspace = ColorSpace::RGB;
+void Encoder::fractalCompressionSingleChannel(int channel, Image *origin_img, Transforms &transforms)
+{
+	ImageMatrix img;
 
-	Transforms transforms;
-	transforms.width = m_img.width;
+	memset(&img, 0, sizeof(img));
 
-	for (int channel = 1; channel <= 3; channel++)
+	img.width = origin_img->info_header.width;
+	img.height = origin_img->info_header.height;
+	img.colorspace = ColorSpace::RGB;
+
+	img.r_channel = new uint8_t[img.width * img.height];
+	getChannel(origin_img, channel, img.r_channel);
+	SaveImageWithMatrix(&img, "Encode_r_channel.bmp");
+	// Make second channel the downsampled version of the image.
+	img.b_channel = IFSTransform::DownSample(img.r_channel, img.width, 0, 0, img.width / 2);
+
+	for (int y = 0; y < img.height; y += m_blockSize)
 	{
-		// Load image into a local copy
-		m_img.r_channel = new uint8_t[m_img.width * m_img.height];
-		getChannel(source, channel, m_img.r_channel);
-		SaveImageWithMatrix(&m_img, "Encode_r_channel.bmp");
-		// Make second channel the downsampled version of the image.
-		m_img.b_channel = IFSTransform::DownSample(m_img.r_channel, m_img.width, 0, 0, m_img.width / 2);
-		ImageMatrix copy;
-
-		memset(&copy, 0, sizeof(copy));
-		copy.width = m_img.width / 2;
-		copy.height = m_img.width / 2;
-
-		// Go through all the range blocks
-
-		for (int y = 0; y < m_img.height; y += m_blockSize)
-		{
-			for (int x = 0; x < m_img.width; x += m_blockSize)
-				findMatchesFor(transforms, channel , x, y, m_blockSize);
-			std::cout << y << std::endl;
-		}
-
-		delete []m_img.r_channel;
-		m_img.r_channel = nullptr;
-		delete []m_img.b_channel;
-		m_img.b_channel = nullptr;
+		for (int x = 0; x < img.width; x += m_blockSize)
+			findMatchesFor(img, transforms, channel, x, y, m_blockSize);
+		std::cout << y << std::endl;
 	}
 
-	return std::move(transforms);
+	delete []img.r_channel;
+	delete []img.b_channel;
 }
 
-void Encoder::findMatchesFor(Transforms& transforms, int channel, int toX, int toY, int blockSize)
+Transforms Encoder::Encode(Image *source) {
+	Transforms transforms;
+	transforms.width = source->info_header.width;
+
+	const int numThreads = 3;
+	std::thread threads[numThreads];
+
+	for (int i = 0; i < numThreads; ++i)
+		threads[i] = std::thread(&Encoder::fractalCompressionSingleChannel, this, i + 1, source, std::ref(transforms));
+
+	for (int i = 0; i < numThreads; ++i)
+		threads[i].join();
+
+	return transforms;
+}
+
+void Encoder::findMatchesFor(const ImageMatrix &img, Transforms &transforms, int channel, int toX, int toY, int blockSize)
 {
 	int bestX = 0;
 	int bestY = 0;
@@ -85,30 +89,30 @@ void Encoder::findMatchesFor(Transforms& transforms, int channel, int toX, int t
 	uint8_t buffer[blockSize * blockSize];
 
 	// Get average pixel for the range block
-	int rangeAvg = GetAveragePixel(m_img.r_channel, m_img.width, toX, toY, blockSize);
+	int rangeAvg = GetAveragePixel(img.r_channel, img.width, toX, toY, blockSize);
 
 	// Go through all the downsampled domain blocks
-	for (int y = 0; y < m_img.height; y += blockSize * 2)
+	for (int y = 0; y < img.height; y += blockSize * 2)
 	{
-		for (int x = 0; x < m_img.width; x += blockSize * 2)
+		for (int x = 0; x < img.width; x += blockSize * 2)
 		{
 			for (int symmetry = 0; symmetry < IFSTransform::SYM_MAX; symmetry++)
 			{
 				auto symmetryEnum = (IFSTransform::SYM)symmetry;
 				IFSTransform ifs = IFSTransform(0, 0, blockSize/*, symmetryEnum*/, 1.0, 0, blockSize, channel);
-				ifs.Execute(m_img.b_channel, m_img.width / 2, buffer, blockSize, true, x / 2, y / 2);
+				ifs.Execute(img.b_channel, img.width / 2, buffer, blockSize, true, x / 2, y / 2);
 
 				// Get average pixel for the downsampled domain block
 				int domainAvg = GetAveragePixel(buffer, blockSize, 0, 0, blockSize);
 
 				// Get scale and offset
-				double scale = GetScaleFactor(m_img.r_channel, m_img.width, toX, toY, domainAvg,
+				double scale = GetScaleFactor(img.r_channel, img.width, toX, toY, domainAvg,
 											  buffer, blockSize, 0, 0, rangeAvg, blockSize);
 				int offset = (int)(rangeAvg - scale * (double)domainAvg);
 
 				// Get error and compare to best error so far
 				double error = GetError(buffer, blockSize, 0, 0, domainAvg,
-										m_img.r_channel, m_img.width, toX, toY, rangeAvg, blockSize, scale);
+										img.r_channel, img.width, toX, toY, rangeAvg, blockSize, scale);
 
 				if (error < bestError)
 				{
@@ -130,15 +134,16 @@ void Encoder::findMatchesFor(Transforms& transforms, int channel, int toX, int t
 	{
 		// Recurse into the four corners of the current block.
 		blockSize /= 2;
-		findMatchesFor(transforms, channel, toX, toY, blockSize);
-		findMatchesFor(transforms, channel, toX + blockSize, toY, blockSize);
-		findMatchesFor(transforms, channel, toX, toY + blockSize, blockSize);
-		findMatchesFor(transforms, channel, toX + blockSize, toY + blockSize, blockSize);
+		findMatchesFor(img, transforms, channel, toX, toY, blockSize);
+		findMatchesFor(img, transforms, channel, toX + blockSize, toY, blockSize);
+		findMatchesFor(img, transforms, channel, toX, toY + blockSize, blockSize);
+		findMatchesFor(img, transforms, channel, toX + blockSize, toY + blockSize, blockSize);
 	}
 	else
 	{
+		std::lock_guard<std::mutex> lockGuard(mtx);
 		// Use this transformation
-		transforms.transforms[DomainBlock(bestX, bestY, m_img.width)].push_back(
+		transforms.transforms[DomainBlock(bestX, bestY, img.width)].push_back(
 				IFSTransform(
 					toX, toY,
 					blockSize,
@@ -233,3 +238,5 @@ Encoder::GetError(const uint8_t *domainData, int domainWidth, int domainX, int d
 
 	return (top / bottom);
 }
+
+

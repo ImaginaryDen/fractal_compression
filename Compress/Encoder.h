@@ -7,19 +7,20 @@
 
 #include "../src/bmplib.h"
 #include "IFSTransform.h"
+#include <thread>
+#include <mutex>
+#include <functional>
 
 class Encoder {
 public:
 	Encoder(int quality, int blockSize, bool symmetry = true)
 	: m_quality(quality), m_blockSize(blockSize), m_symmetry(symmetry)
-	{
-		memset(&m_img, 0, sizeof(m_img));
-	};
+	{};
 
 	Transforms Encode(Image* source);
 
 protected:
-	void findMatchesFor(Transforms& transforms, int channel, int toX, int toY, int blockSize);
+	void findMatchesFor(const ImageMatrix &img, Transforms &transforms, int channel, int toX, int toY, int blockSize);
 
 	// These functions are helpers
 	static int GetAveragePixel(const uint8_t* domainData, int domainWidth, int domainX, int domainY, int size);
@@ -34,11 +35,14 @@ protected:
 			const uint8_t* rangeData, uint32_t rangeWidth, int rangeX, int rangeY, int rangeAvg,
 			int size, double scale);
 
+	void fractalCompressionSingleChannel(int channel, Image *origin_img, Transforms &transforms);
+
 protected:
-	ImageMatrix m_img;
 	int m_quality;
 	int m_blockSize;
 	bool m_symmetry;
+
+	std::mutex mtx;
 };
 
 
