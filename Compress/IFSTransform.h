@@ -15,7 +15,7 @@ struct DomainBlock{
 	uint16_t m_from_range;
 	static const int fix_size = 2;
 	DomainBlock() = default;
-	DomainBlock(int x, int y, int width) {setXY(width, x, y);};
+	DomainBlock(int x, int y, int width) : m_from_range(0) {setXY(width, x, y);};
 
 	int getX(int width) const { return calculateByte(width, 1);};
 	int getY(int width) const { return calculateByte(width, 2);};
@@ -24,7 +24,6 @@ struct DomainBlock{
 	bool operator <(const DomainBlock &other) const;
 
 	void setXY(int width, int x, int y);
-	// std::vector<IFSTransform> transform;
 private:
 	int calculateByte(int width, int byte) const;
 
@@ -54,11 +53,8 @@ public:
 	};
 
 	IFSTransform() = default;
-	IFSTransform(int16_t toX, int16_t toY, uint16_t size, float scale, int16_t offset, int16_t width,
-				 int16_t chanel);
-
-	void Execute(uint8_t *src, uint32_t srcWidth, uint8_t *dest, int destWidth, bool downsampled, int fromX,
-				 int fromY);
+	IFSTransform(int16_t toX, int16_t toY, uint16_t size, float scale, int16_t offset, int16_t width, int16_t chanel);
+	void Execute(uint8_t *src, uint32_t srcWidth, uint8_t *dest, int destWidth, bool downsampled, int fromX, int fromY);
 
 	int getX(int width) const;
 	int getY(int width) const;
@@ -77,7 +73,7 @@ private:
 
 	float m_scale{};
 private:
-	uint16_t m_rang;
+	uint16_t m_rang{};
 	uint16_t m_offset{};
 };
 

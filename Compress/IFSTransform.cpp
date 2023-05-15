@@ -223,19 +223,6 @@ void Transforms::safeData(const char *fileName) {
 		for (auto &item : items.second)
 			WriteBytes(output, &item, sizeof(item));
 	}
-//	size_t fileSize = compressBound(data.size());
-//	std::vector<char> compressed_data(fileSize + sizeof(fileSize));
-//	memcpy(compressed_data.data(), &fileSize, sizeof(fileSize));
-//	uLongf compressed_size = compressed_data.size();
-//	int result = compress(reinterpret_cast<Bytef*>(compressed_data.data() + sizeof(fileSize)), &compressed_size,
-//						  reinterpret_cast<const Bytef*>(data.data()), data.size());
-
-//	if (result != Z_OK)
-//		throw std::runtime_error("Failed to compress data");
-
-//	compressed_data.resize(compressed_size + sizeof(fileSize));
-//	WriteBytes(output, compressed_data.data(), compressed_size + sizeof(fileSize), false);
-
 	fclose(output);
 }
 
@@ -245,21 +232,6 @@ void Transforms::loadData(const char *fileName) {
 	fseek(input, 0, SEEK_END);
 	size_t fileSize = ftell(input);
 	fseek(input, 0, SEEK_SET);
-//	std::vector<char> compressed_data(fileSize);
-//
-//	if (fread(compressed_data.data(), fileSize, 1, input) < 0)
-//		exit(-1);
-//
-//	uint32_t decompressed_size = 0;
-//	memcpy(&decompressed_size, compressed_data.data(), sizeof(decompressed_size));
-//
-//	std::vector<char> decompressed_data(decompressed_size);
-//	int result = uncompress(reinterpret_cast<Bytef*>(decompressed_data.data() + sizeof(decompressed_size)),
-//							reinterpret_cast<uLong *> (&decompressed_size),
-//							reinterpret_cast<const Bytef*>(compressed_data.data()),
-//							static_cast<uLong>(compressed_data.size()));
-//
-//	char *dataIter = decompressed_data.data();
 
 	ReadBytes(input, &width, sizeof(width));
 	DomainBlock temp;

@@ -10,6 +10,8 @@
 
 
 #include "bmplib.h"
+#include <iostream>
+#include <windows.h>
 
 
 Image *load_image(const char *filename)
@@ -473,6 +475,8 @@ bool SaveImageWithMatrix(ImageMatrix *img, const char *file_name)
 		}
 
 	// Save the image on the hard drive
+	std::cout << file_name << std::endl;
+	Sleep(10000);
 	save_image(file_name, &image);
 	return true;
 }
